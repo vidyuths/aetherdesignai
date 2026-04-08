@@ -22,6 +22,7 @@ import { figmaHandlers as versionHistoryHandlers } from "./version-history";
 import { figmaHandlers as prototypingHandlers } from "./prototyping";
 import { figmaHandlers as annotationsHandlers } from "./annotations";
 import { figmaHandlers as stageHandlers } from "./stage";
+import { figmaHandlers as designSystemHandlers } from "./design-system";
 
 // ─── Shared adapters for inherited node base methods ──────────────
 // Single source of truth for param → handler item mapping.
@@ -66,6 +67,7 @@ export const allFigmaHandlers: Record<string, (params: any) => Promise<any>> = {
   ...versionHistoryHandlers,
   ...prototypingHandlers,
   ...annotationsHandlers,
+  ...designSystemHandlers,
 
   // ─── Endpoint-style command aliases (generated endpoints use {endpoint}.{method}) ───
   // connection endpoint

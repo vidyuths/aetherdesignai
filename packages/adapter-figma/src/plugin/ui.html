@@ -4,14 +4,11 @@
     <meta charset="utf-8" />
     <title>Vibma</title>
     <style>
-      *, *::before, *::after {
-        box-sizing: border-box;
-      }
+      *, *::before, *::after { box-sizing: border-box; }
 
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-        margin: 0;
-        padding: 0;
+        margin: 0; padding: 0;
         color: #e8e8e8;
         background-color: #171717;
         font-size: 13px;
@@ -19,20 +16,17 @@
       }
 
       .container {
-        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
         min-height: 100vh;
       }
 
-      /* Header */
+      /* ─── Header ─────────────────────────────────────── */
       .header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #272727;
+        padding: 14px 16px 0;
       }
 
       .header-title {
@@ -44,11 +38,218 @@
 
       .version-chip {
         font-size: 11px;
-        color: #b0b0b0;
+        color: #606060;
         font-variant-numeric: tabular-nums;
       }
 
-      /* Connection banner under title bar */
+      .collapse-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: transparent;
+        border: 1px solid #333;
+        color: #888;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+        flex-shrink: 0;
+      }
+      .collapse-toggle:hover { color: #e8e8e8; background-color: #282828; border-color: #444; }
+      .collapse-toggle svg { width: 13px; height: 13px; }
+
+      /* ─── Tabs ───────────────────────────────────────── */
+      .tabs {
+        display: flex;
+        gap: 0;
+        padding: 12px 16px 0;
+        border-bottom: 1px solid #252525;
+      }
+
+      .tab {
+        padding: 6px 12px 8px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #666;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color 0.15s, border-color 0.15s;
+        user-select: none;
+        letter-spacing: -0.01em;
+      }
+      .tab:hover { color: #bbb; }
+      .tab.active { color: #f0f0f0; border-bottom-color: #18a0fb; }
+
+      /* ─── Tab panels ─────────────────────────────────── */
+      .tab-panel { display: none; flex: 1; flex-direction: column; }
+      .tab-panel.active { display: flex; }
+
+      /* ─── Prompt panel ───────────────────────────────── */
+      .prompt-panel {
+        padding: 14px 16px 16px;
+        gap: 10px;
+      }
+
+      /* DS detect button */
+      .btn-detect {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        background-color: #0c1e35;
+        border: 1px solid #1a4880;
+        color: #6bbcf8;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        font-family: inherit;
+        width: 100%;
+        transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+        letter-spacing: -0.01em;
+      }
+      .btn-detect:hover:not(:disabled) { background-color: #0e2848; border-color: #2563a8; color: #93c8f0; }
+      .btn-detect:disabled { opacity: 0.4; cursor: not-allowed; }
+      .btn-detect .detect-icon { font-size: 14px; line-height: 1; }
+
+      /* Summary box */
+      .ds-summary {
+        background-color: #0d1e2e;
+        border: 1px solid #1a3a5c;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 11.5px;
+        color: #7dbfe8;
+        line-height: 1.5;
+        display: none;
+      }
+      .ds-summary.visible { display: block; }
+      .ds-summary.error { background-color: #1e0d0d; border-color: #5c1a1a; color: #e87d7d; }
+      .ds-summary.loading { color: #5a8aa8; font-style: italic; }
+
+      .ds-summary-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        color: #4a7fa8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+      }
+      .ds-summary.error .ds-summary-label { color: #a84a4a; }
+
+      /* Divider */
+      .section-divider {
+        height: 1px;
+        background-color: #232323;
+        margin: 2px 0;
+      }
+
+      /* Prompt textarea */
+      .prompt-label {
+        font-size: 10.5px;
+        font-weight: 500;
+        color: #888;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      #prompt-input {
+        background-color: #1e1e1e;
+        border: 1px solid #2e2e2e;
+        border-radius: 8px;
+        padding: 10px 11px;
+        font-size: 13px;
+        color: #e8e8e8;
+        outline: none;
+        width: 100%;
+        resize: vertical;
+        min-height: 100px;
+        max-height: 240px;
+        font-family: inherit;
+        line-height: 1.5;
+        transition: border-color 0.15s;
+      }
+      #prompt-input:focus { border-color: #18a0fb; }
+      #prompt-input::placeholder { color: #444; }
+
+      /* Selection toggle */
+      .selection-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+        color: #888;
+        transition: color 0.15s;
+      }
+      .selection-toggle:hover { color: #bbb; }
+      .selection-toggle input[type="checkbox"] { accent-color: #18a0fb; width: 13px; height: 13px; }
+
+      /* Generate row */
+      .generate-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn-generate {
+        flex: 1;
+        background-color: #0f68c2;
+        border: none;
+        color: #fff;
+        padding: 9px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        transition: background-color 0.15s, transform 0.1s;
+        letter-spacing: -0.02em;
+      }
+      .btn-generate:hover:not(:disabled) { background-color: #0d5ba8; }
+      .btn-generate:active:not(:disabled) { transform: scale(0.98); }
+      .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      .btn-clear {
+        font-size: 12px;
+        color: #555;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        padding: 4px;
+        transition: color 0.15s;
+        white-space: nowrap;
+        width: auto;
+      }
+      .btn-clear:hover { color: #999; }
+
+      /* Generate status */
+      .generate-status {
+        font-size: 11.5px;
+        line-height: 1.4;
+        min-height: 0;
+        display: none;
+      }
+      .generate-status.visible { display: block; }
+      .generate-status.success { color: #5fd69a; }
+      .generate-status.error { color: #f87171; }
+      .generate-status.loading { color: #7dbfe8; }
+
+      /* ─── Settings panel ─────────────────────────────── */
+      .settings-panel {
+        padding: 14px 16px 16px;
+        gap: 12px;
+      }
+
       .connection-banner {
         display: flex;
         align-items: center;
@@ -70,8 +271,7 @@
       }
 
       .banner-icon {
-        width: 14px;
-        height: 14px;
+        width: 14px; height: 14px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -83,96 +283,39 @@
         flex-shrink: 0;
       }
 
-      .connection-banner.connected .banner-icon {
-        border-color: #2f8c5c;
-        color: #5fd69a;
-      }
+      .connection-banner.connected .banner-icon { border-color: #2f8c5c; color: #5fd69a; }
+      .connection-banner.info .banner-icon,
+      .connection-banner.connecting .banner-icon { border-color: #2f7094; color: #93c8f0; }
+      .connection-banner.connecting .banner-secondary { color: #a6d5f7; }
+      .connection-banner.error { border-color: #6f2e2e; background-color: #2a1717; }
+      .connection-banner.error .banner-icon { border-color: #a94040; color: #ff7a7a; }
+      .connection-banner.error .banner-secondary { color: #f6b1b1; }
+      .connection-banner.warning { border-color: #705a1f; background-color: #2a2414; }
+      .connection-banner.warning .banner-icon { border-color: #b18b2e; color: #ffd36a; }
+      .connection-banner.warning .banner-secondary { color: #f3dca1; }
+      .banner-warning-text { color: #f3dca1; }
+      .banner-icon.spinning { animation: spin 1s linear infinite; }
 
-      .connection-banner.info .banner-icon {
-        border-color: #2f7094;
-        color: #93c8f0;
-      }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-      .connection-banner.connecting .banner-icon {
-        border-color: #2f7094;
-        color: #93c8f0;
-      }
-
-      .connection-banner.connecting .banner-secondary {
-        color: #a6d5f7;
-      }
-
-      .connection-banner.error {
-        border-color: #6f2e2e;
-        background-color: #2a1717;
-      }
-
-      .connection-banner.error .banner-icon {
-        border-color: #a94040;
-        color: #ff7a7a;
-      }
-
-      .connection-banner.error .banner-secondary {
-        color: #f6b1b1;
-      }
-
-      .connection-banner.warning {
-        border-color: #705a1f;
-        background-color: #2a2414;
-      }
-
-      .connection-banner.warning .banner-icon {
-        border-color: #b18b2e;
-        color: #ffd36a;
-      }
-
-      .connection-banner.warning .banner-secondary {
-        color: #f3dca1;
-      }
-
-      .banner-warning-text {
-        color: #f3dca1;
-      }
-
-      .banner-icon.spinning {
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-
-      .banner-divider {
-        width: 1px;
-        height: 18px;
-        background-color: #3b3b3b;
-        flex-shrink: 0;
-      }
+      .banner-divider { width: 1px; height: 18px; background-color: #3b3b3b; flex-shrink: 0; }
 
       .banner-secondary {
-        min-width: 0;
-        flex: 1;
+        min-width: 0; flex: 1;
         color: #b8b8b8;
         font-size: 11px;
         white-space: normal;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
-        line-clamp: 2;
-        -webkit-line-clamp: 2;
+        line-clamp: 2; -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         line-height: 1.25;
         max-height: 2.5em;
       }
 
-      .connection-banner.connected .banner-secondary {
-        color: #bfe7d1;
-      }
-
-      .connection-banner.info .banner-secondary {
-        color: #a6d5f7;
-      }
+      .connection-banner.connected .banner-secondary { color: #bfe7d1; }
+      .connection-banner.info .banner-secondary { color: #a6d5f7; }
 
       /* Form */
       .form-row {
@@ -182,13 +325,9 @@
         align-items: end;
       }
 
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
+      .form-group { display: flex; flex-direction: column; gap: 4px; }
 
-      label {
+      label, .field-label {
         font-size: 10.5px;
         font-weight: 500;
         color: #b8b8b8;
@@ -208,16 +347,8 @@
         transition: border-color 0.15s;
         font-family: inherit;
       }
-
-      input:focus, select:focus {
-        border-color: #18a0fb;
-      }
-
-      input:disabled, select:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-
-      }
+      input:focus, select:focus { border-color: #18a0fb; }
+      input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 
       select {
         cursor: pointer;
@@ -229,8 +360,7 @@
         padding-right: 20px;
       }
 
-      /* Button */
-      button {
+      .btn-connect-settings {
         background-color: #0f68c2;
         border: none;
         color: #fff;
@@ -241,34 +371,15 @@
         font-weight: 500;
         font-family: inherit;
         width: 100%;
-        transition: background-color 0.15s ease, transform 0.1s ease;
+        transition: background-color 0.15s, transform 0.1s;
         letter-spacing: -0.01em;
       }
+      .btn-connect-settings:hover:not(:disabled) { background-color: #0d5ba8; }
+      .btn-connect-settings:active:not(:disabled) { transform: scale(0.98); }
+      .btn-connect-settings.secondary { background-color: #242424; color: #d0d0d0; border: 1px solid #333; }
+      .btn-connect-settings.secondary:hover:not(:disabled) { background-color: #2c2c2c; }
+      .btn-connect-settings:disabled { opacity: 0.35; cursor: not-allowed; }
 
-      button:hover:not(:disabled) {
-        background-color: #0d5ba8;
-      }
-
-      button:active:not(:disabled) {
-        transform: scale(0.98);
-      }
-
-      button.secondary {
-        background-color: #242424;
-        color: #d0d0d0;
-        border: 1px solid #333;
-      }
-
-      button.secondary:hover:not(:disabled) {
-        background-color: #2c2c2c;
-      }
-
-      button:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-
-      /* Warning */
       #warning-box {
         display: flex;
         flex-direction: column;
@@ -282,32 +393,7 @@
         border-radius: 10px;
         border: 1px solid #2d5f8a;
       }
-
-      #warning-box .warning-label {
-        color: #c5e2ff;
-        font-weight: 600;
-      }
-
-      /* Footer row */
-      .footer-row {
-        font-size: 11.5px;
-        color: #b0b0b0;
-        text-align: center;
-        margin-top: auto;
-        padding-top: 8px;
-      }
-
-      .link {
-        color: #18a0fb;
-        text-decoration: none;
-        cursor: pointer;
-        opacity: 0.9;
-      }
-
-      .link:hover {
-        opacity: 1;
-        text-decoration: underline;
-      }
+      #warning-box .warning-label { color: #c5e2ff; font-weight: 600; }
 
       /* Progress */
       .progress-section {
@@ -317,110 +403,36 @@
         padding-top: 12px;
         border-top: 1px solid #272727;
       }
-
-      .hidden {
-        display: none !important;
-      }
-
-      .progress-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .progress-title {
-        font-size: 10.5px;
-        font-weight: 500;
-        color: #b8b8b8;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      #progress-percentage {
-        font-size: 11px;
-        color: #b0b0b0;
-        font-variant-numeric: tabular-nums;
-      }
-
-      #progress-message {
-        font-size: 12px;
-        color: #b0b0b0;
-        line-height: 1.4;
-      }
-
-      .progress-track {
-        height: 3px;
-        background-color: #252525;
-        border-radius: 2px;
-        overflow: hidden;
-      }
-
-      #progress-bar {
-        height: 100%;
-        background-color: #18a0fb;
-        border-radius: 2px;
-        transition: width 0.3s ease;
-        width: 0%;
-      }
-
-      .progress-footer {
-        font-size: 11px;
-        color: #b0b0b0;
-      }
-
+      .hidden { display: none !important; }
+      .progress-header { display: flex; justify-content: space-between; align-items: center; }
+      .progress-title { font-size: 10.5px; font-weight: 500; color: #b8b8b8; text-transform: uppercase; letter-spacing: 0.04em; }
+      #progress-percentage { font-size: 11px; color: #b0b0b0; font-variant-numeric: tabular-nums; }
+      #progress-message { font-size: 12px; color: #b0b0b0; line-height: 1.4; }
+      .progress-track { height: 3px; background-color: #252525; border-radius: 2px; overflow: hidden; }
+      #progress-bar { height: 100%; background-color: #18a0fb; border-radius: 2px; transition: width 0.3s ease; width: 0%; }
+      .progress-footer { font-size: 11px; color: #b0b0b0; }
       .operation-complete { color: #4ade80; }
       .operation-error { color: #f87171; }
 
-      /* Collapse button in header */
-      .collapse-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #999;
-        cursor: pointer;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        flex-shrink: 0;
-        border-radius: 6px;
-        transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+      /* Footer */
+      .footer-row {
+        font-size: 11.5px;
+        color: #b0b0b0;
+        text-align: center;
+        margin-top: auto;
+        padding: 10px 16px 14px;
       }
+      .link { color: #18a0fb; text-decoration: none; cursor: pointer; opacity: 0.9; }
+      .link:hover { opacity: 1; text-decoration: underline; }
 
-      .collapse-toggle:hover {
-        color: #e8e8e8;
-        background-color: #333;
-        border-color: #4a4a4a;
-      }
-
-      .collapse-toggle svg {
-        width: 14px;
-        height: 14px;
-      }
-
-      /* Collapsed mode */
-      body.collapsed .container {
-        padding: 0;
-        gap: 0;
-        min-height: auto;
-      }
-
+      /* ─── Collapsed ──────────────────────────────────── */
+      body.collapsed .container { padding: 0; gap: 0; min-height: auto; }
       body.collapsed .header,
-      body.collapsed .connection-banner,
-      body.collapsed .form-row,
-      body.collapsed #btn-connect,
-      body.collapsed #warning-box,
-      body.collapsed .footer-row,
-      body.collapsed #progress-container {
-        display: none !important;
-      }
+      body.collapsed .tabs,
+      body.collapsed .tab-panel,
+      body.collapsed .footer-row { display: none !important; }
+      body.collapsed .collapsed-bar { display: flex !important; }
 
-      body.collapsed .collapsed-bar {
-        display: flex !important;
-      }
-
-      /* Collapsed bar (hidden when expanded) */
       .collapsed-bar {
         display: none;
         align-items: center;
@@ -429,83 +441,44 @@
         padding: 0 16px;
         background-color: #171717;
       }
+      .collapsed-bar .banner-icon { width: 18px; height: 18px; }
+      .collapsed-bar-label { font-size: 12px; font-weight: 600; color: #e6e6e6; white-space: nowrap; }
+      .collapsed-bar-peer { font-size: 12px; color: #bfe7d1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+      .collapsed-bar .collapse-toggle { width: 24px; height: 24px; }
 
-      .collapsed-bar .banner-icon {
-        width: 18px;
-        height: 18px;
-      }
-
-      .collapsed-bar-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #e6e6e6;
-        white-space: nowrap;
-      }
-
-      .collapsed-bar-peer {
-        font-size: 12px;
-        color: #bfe7d1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        flex: 1;
-      }
-
-      .collapsed-bar .collapse-toggle {
-        width: 24px;
-        height: 24px;
-      }
-
-      /* Collapse/expand transition */
-      body {
-        transition: opacity 120ms ease;
-      }
+      body { transition: opacity 120ms ease; }
 
       /* Resize grip */
       .resize-grip {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 6px;
-        height: 100%;
-        cursor: col-resize;
-        z-index: 100;
+        position: fixed; top: 0; right: 0;
+        width: 6px; height: 100%;
+        cursor: col-resize; z-index: 100;
       }
-
       .resize-grip::after {
         content: "";
         position: absolute;
-        top: 50%;
-        right: 1px;
+        top: 50%; right: 1px;
         transform: translateY(-50%);
-        width: 2px;
-        height: 24px;
+        width: 2px; height: 24px;
         border-radius: 1px;
         background-color: #3a3a3a;
-        opacity: 0;
-        transition: opacity 0.15s;
+        opacity: 0; transition: opacity 0.15s;
       }
-
       .resize-grip:hover::after,
-      body.resizing .resize-grip::after {
-        opacity: 1;
-      }
-
-      body.resizing {
-        cursor: col-resize;
-        user-select: none;
-      }
+      body.resizing .resize-grip::after { opacity: 1; }
+      body.resizing { cursor: col-resize; user-select: none; }
     </style>
   </head>
 
   <body>
     <div class="resize-grip" id="resize-grip"></div>
+
     <div class="container">
 
-      <!-- Collapsed bar (shown only when collapsed) -->
+      <!-- Collapsed bar -->
       <div id="collapsed-bar" class="collapsed-bar">
-        <span id="collapsed-icon" class="banner-icon">✓</span>
-        <span id="collapsed-label" class="collapsed-bar-label">Connected</span>
+        <span id="collapsed-icon" class="banner-icon">○</span>
+        <span id="collapsed-label" class="collapsed-bar-label">Disconnected</span>
         <span id="collapsed-peer" class="collapsed-bar-peer"></span>
         <button id="expand-toggle" class="collapse-toggle" title="Expand">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
@@ -523,76 +496,127 @@
         </button>
       </div>
 
-      <!-- Connection banner -->
-      <div id="connection-banner" class="connection-banner disconnected">
-        <div class="banner-primary">
-          <span id="banner-icon" class="banner-icon">○</span>
-          <span id="banner-status-label">Disconnected</span>
-        </div>
-        <div class="banner-divider"></div>
-        <div id="connection-info" class="banner-secondary"></div>
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab active" data-tab="prompt">Prompt</div>
+        <div class="tab" data-tab="settings">Settings</div>
       </div>
 
-      <!-- Port + Channel -->
-      <div class="form-row">
-        <div class="form-group">
-          <label id="label-port"></label>
-          <select id="port">
-            <option value="3055" selected>3055</option>
-            <option value="3056">3056</option>
-            <option value="3057">3057</option>
-            <option value="3058">3058</option>
-          </select>
+      <!-- ── Prompt Tab ── -->
+      <div class="tab-panel active prompt-panel" id="panel-prompt">
+
+        <!-- Auto-detect button -->
+        <button class="btn-detect" id="btn-detect">
+          <span class="detect-icon">◈</span>
+          Auto-detect Design System
+        </button>
+
+        <!-- Summary box -->
+        <div class="ds-summary" id="ds-summary">
+          <span class="ds-summary-label">Design System</span>
+          <span id="ds-summary-text"></span>
         </div>
-        <div class="form-group">
-          <label id="label-channel"></label>
-          <input
-            type="text"
-            id="channel-name"
-            placeholder="vibma"
-            value="vibma"
-            maxlength="32"
-            pattern="[a-zA-Z0-9_\-]+"
-          />
+
+        <div class="section-divider"></div>
+
+        <!-- Prompt textarea -->
+        <label class="prompt-label" for="prompt-input">Prompt</label>
+        <textarea
+          id="prompt-input"
+          placeholder="Describe what you want to create or change…"
+          rows="5"
+        ></textarea>
+
+        <!-- Selection toggle -->
+        <label class="selection-toggle">
+          <input type="checkbox" id="apply-selection" />
+          Apply to current selection
+        </label>
+
+        <!-- Generate / Clear -->
+        <div class="generate-row">
+          <button class="btn-generate" id="btn-generate">Generate</button>
+          <button class="btn-clear" id="btn-clear">Clear</button>
         </div>
+
+        <!-- Generate status feedback -->
+        <div class="generate-status" id="generate-status"></div>
+
       </div>
 
-      <!-- Connect button -->
-      <button id="btn-connect"></button>
+      <!-- ── Settings Tab ── -->
+      <div class="tab-panel settings-panel" id="panel-settings">
 
-      <!-- Warning -->
-      <div id="warning-box"></div>
+        <!-- Connection banner -->
+        <div id="connection-banner" class="connection-banner disconnected">
+          <div class="banner-primary">
+            <span id="banner-icon" class="banner-icon">○</span>
+            <span id="banner-status-label">Disconnected</span>
+          </div>
+          <div class="banner-divider"></div>
+          <div id="connection-info" class="banner-secondary"></div>
+        </div>
 
-      <!-- Progress -->
-      <div id="progress-container" class="progress-section hidden">
-        <div class="progress-header">
-          <span class="progress-title" id="progress-heading"></span>
-          <span id="progress-percentage">0%</span>
+        <!-- Port + Channel -->
+        <div class="form-row">
+          <div class="form-group">
+            <label id="label-port">Port</label>
+            <select id="port">
+              <option value="3055" selected>3055</option>
+              <option value="3056">3056</option>
+              <option value="3057">3057</option>
+              <option value="3058">3058</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="label-channel">Channel</label>
+            <input
+              type="text"
+              id="channel-name"
+              placeholder="vibma"
+              value="vibma"
+              maxlength="32"
+              pattern="[a-zA-Z0-9_\-]+"
+            />
+          </div>
         </div>
-        <div id="progress-message"></div>
-        <div class="progress-track">
-          <div id="progress-bar"></div>
-        </div>
-        <div class="progress-footer">
-          <span id="progress-status"></span>
-        </div>
-      </div>
 
-      <!-- Reset -->
-      <div class="footer-row">
-        <span id="having-issues"></span> <a id="btn-reset" class="link"></a>
+        <!-- Connect button -->
+        <button class="btn-connect-settings" id="btn-connect">Connect</button>
+
+        <!-- Warning -->
+        <div id="warning-box"></div>
+
+        <!-- Progress -->
+        <div id="progress-container" class="progress-section hidden">
+          <div class="progress-header">
+            <span class="progress-title" id="progress-heading">Operation Progress</span>
+            <span id="progress-percentage">0%</span>
+          </div>
+          <div id="progress-message"></div>
+          <div class="progress-track">
+            <div id="progress-bar"></div>
+          </div>
+          <div class="progress-footer">
+            <span id="progress-status"></span>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-row">
+          <span id="having-issues">Having issues?</span> <a id="btn-reset" class="link">Reset tunnel</a>
+        </div>
+
       </div>
 
     </div>
 
     <script>
-      // Keep in sync with package.json version
       const VIBMA_VERSION = "1.0.0";
 
-      // ─── i18n ─────────────────────────────────────────────────────
+      // ─── i18n ──────────────────────────────────────────────────────
       const i18n = {
         en: {
-          tagline: "Vibe Design meets Figma — AI-powered MCP bridge",
           btnConnect: "Connect",
           btnDisconnect: "Disconnect",
           labelPort: "Port",
@@ -637,6 +661,196 @@
         return str.replace(/\{(\w+)\}/g, (_, k) => vars[k] !== undefined ? vars[k] : `{${k}}`);
       }
 
+      // ─── State ─────────────────────────────────────────────────────
+      const state = {
+        connected: false,
+        socket: null,
+        serverPort: 3055,
+        pendingRequests: new Map(),
+        channel: null,
+        lastError: null,
+        mcpPeer: null,
+        versionWarning: null,
+        dsContext: null,
+      };
+
+      document.getElementById("version-badge").textContent = `v${VIBMA_VERSION}`;
+
+      // ─── Tab switching ──────────────────────────────────────────────
+      document.querySelectorAll(".tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+          tab.classList.add("active");
+          document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+
+          // Resize for the active tab
+          const height = document.body.classList.contains("collapsed") ? 48 : 480;
+          parent.postMessage({ pluginMessage: { type: "resize", width: currentWidth, height } }, "*");
+        });
+      });
+
+      // ─── UI element refs ────────────────────────────────────────────
+      const portInput = document.getElementById("port");
+      const channelInput = document.getElementById("channel-name");
+      const connectButton = document.getElementById("btn-connect");
+      const connectionBanner = document.getElementById("connection-banner");
+      const bannerIcon = document.getElementById("banner-icon");
+      const bannerStatusLabel = document.getElementById("banner-status-label");
+      const connectionInfo = document.getElementById("connection-info");
+      const progressContainer = document.getElementById("progress-container");
+      const progressBar = document.getElementById("progress-bar");
+      const progressMessage = document.getElementById("progress-message");
+      const progressStatus = document.getElementById("progress-status");
+      const progressPercentage = document.getElementById("progress-percentage");
+
+      const detectBtn = document.getElementById("btn-detect");
+      const dsSummary = document.getElementById("ds-summary");
+      const dsSummaryText = document.getElementById("ds-summary-text");
+      const promptInput = document.getElementById("prompt-input");
+      const applySelection = document.getElementById("apply-selection");
+      const generateBtn = document.getElementById("btn-generate");
+      const clearBtn = document.getElementById("btn-clear");
+      const generateStatus = document.getElementById("generate-status");
+
+      // ─── Auto-detect Design System ─────────────────────────────────
+      detectBtn.addEventListener("click", async () => {
+        detectBtn.disabled = true;
+        detectBtn.textContent = "Detecting…";
+
+        dsSummary.className = "ds-summary visible loading";
+        dsSummaryText.textContent = "Scanning document…";
+
+        try {
+          const result = await sendPluginCommand("get_full_design_system_context", {});
+          state.dsContext = result;
+          dsSummary.className = "ds-summary visible";
+          dsSummaryText.textContent = result.summary || "Design system detected.";
+        } catch (err) {
+          dsSummary.className = "ds-summary visible error";
+          dsSummaryText.textContent = err.message || "Failed to detect design system.";
+          state.dsContext = null;
+        } finally {
+          detectBtn.disabled = false;
+          detectBtn.innerHTML = '<span class="detect-icon">◈</span> Auto-detect Design System';
+        }
+      });
+
+      // ─── Generate ──────────────────────────────────────────────────
+      generateBtn.addEventListener("click", async () => {
+        const prompt = promptInput.value.trim();
+        if (!prompt) {
+          showGenerateStatus("Enter a prompt first.", "error");
+          return;
+        }
+        if (!state.connected) {
+          showGenerateStatus("Not connected. Go to Settings tab to connect.", "error");
+          return;
+        }
+
+        generateBtn.disabled = true;
+        showGenerateStatus("Sending to agent…", "loading");
+
+        try {
+          const payload = {
+            prompt,
+            applyToSelection: applySelection.checked,
+            designSystemContext: state.dsContext || null,
+          };
+          const result = await sendCommand("generate", payload);
+          showGenerateStatus(
+            result?.message || "Done.",
+            "success"
+          );
+        } catch (err) {
+          showGenerateStatus(err.message || "Error sending prompt.", "error");
+        } finally {
+          generateBtn.disabled = false;
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        promptInput.value = "";
+        generateStatus.className = "generate-status";
+        dsSummary.className = "ds-summary";
+        state.dsContext = null;
+      });
+
+      function showGenerateStatus(msg, type) {
+        generateStatus.textContent = msg;
+        generateStatus.className = `generate-status visible ${type}`;
+      }
+
+      // ─── sendPluginCommand: send to plugin sandbox (handles locally) ─
+      function sendPluginCommand(command, params) {
+        return new Promise((resolve, reject) => {
+          const id = generateId();
+          state.pendingRequests.set(id, { resolve, reject });
+          parent.postMessage({
+            pluginMessage: { type: "execute-command", id, command, params },
+          }, "*");
+          setTimeout(() => {
+            if (state.pendingRequests.has(id)) {
+              state.pendingRequests.delete(id);
+              reject(new Error("Command timed out"));
+            }
+          }, 30000);
+        });
+      }
+
+      // ─── Connection banner helpers ──────────────────────────────────
+      function buildBannerInfo(isConnected) {
+        if (!isConnected) {
+          return `<a class="link" onclick="window.open('https://github.com/ufira-ai/vibma', '_blank')">${t("setupGuide")}</a>`;
+        }
+        let info = "";
+        if (state.mcpPeer) {
+          const name = state.mcpPeer.name || "unknown";
+          const ver = state.mcpPeer.version ? ` (v${state.mcpPeer.version})` : "";
+          info += `<strong>${name}${ver}</strong>`;
+        } else {
+          info += t("waitingMcp");
+        }
+        if (state.versionWarning) {
+          info += `<br><span class="banner-warning-text">${state.versionWarning}</span>`;
+        }
+        return info;
+      }
+
+      function renderBanner(visualState, infoHtml, labelText) {
+        const iconMap = { connected: "✓", connecting: "↻", error: "!", warning: "⚠", disconnected: "○", info: "○" };
+        bannerStatusLabel.textContent = labelText;
+        bannerIcon.className = `banner-icon${visualState === "connecting" ? " spinning" : ""}`;
+        bannerIcon.textContent = iconMap[visualState] || "○";
+        connectionInfo.innerHTML = infoHtml;
+        connectionBanner.className = `connection-banner ${visualState}`;
+      }
+
+      function updateConnectionStatus(isConnected, message) {
+        state.connected = isConnected;
+        const isTransient = [t("statusConnecting"), t("statusDisconnecting"), t("statusResetting")].includes(message);
+        const isConnecting = message === t("statusConnecting");
+        const isError = !isConnected && Boolean(message) && message !== t("statusDisconnected") && message !== t("statusDisconnectedFromServer") && !isTransient;
+        const isWarning = isConnected && Boolean(state.versionWarning);
+
+        let labelText = isConnected ? t("statusBadgeConnected") : t("statusBadgeDisconnected");
+        let infoHtml = isTransient ? message : buildBannerInfo(isConnected);
+        let visualState = isConnected ? "connected" : "disconnected";
+
+        if (!isConnected && isConnecting) { labelText = t("statusBadgeConnecting"); infoHtml = buildBannerInfo(false); visualState = "connecting"; }
+        else if (isError) { labelText = t("statusBadgeError"); infoHtml = message; visualState = "error"; }
+        else if (isWarning) { visualState = "warning"; }
+        else if (isTransient) { visualState = "connecting"; }
+
+        renderBanner(visualState, infoHtml, labelText);
+        if (document.body.classList.contains("collapsed")) updateCollapsedStatus();
+
+        connectButton.textContent = isConnected ? t("btnDisconnect") : t("btnConnect");
+        connectButton.className = `btn-connect-settings${isConnected ? " secondary" : ""}`;
+        portInput.disabled = isConnected;
+        channelInput.disabled = isConnected;
+      }
+
       function applyLocale() {
         connectButton.textContent = state.connected ? t("btnDisconnect") : t("btnConnect");
         document.getElementById("label-port").textContent = t("labelPort");
@@ -648,471 +862,156 @@
         document.getElementById("progress-heading").textContent = t("progressTitle");
         document.getElementById("progress-message").textContent = t("noOperation");
         document.getElementById("progress-status").textContent = t("notStarted");
-
-        if (!state.connected) {
-          updateConnectionStatus(false);
-        } else {
-          updateConnectionStatus(true);
-        }
+        if (!state.connected) updateConnectionStatus(false);
+        else updateConnectionStatus(true);
       }
 
-      // ─── State ──────────────────────────────────────────────────────
-      const state = {
-        connected: false,
-        socket: null,
-        serverPort: 3055,
-        pendingRequests: new Map(),
-        channel: null,
-        lastError: null,
-        mcpPeer: null,
-        versionWarning: null,
-      };
-
-      // Set version badge
-      document.getElementById("version-badge").textContent = `v${VIBMA_VERSION}`;
-
-      // UI Elements
-      const portInput = document.getElementById("port");
-      const channelInput = document.getElementById("channel-name");
-      const connectButton = document.getElementById("btn-connect");
-      const connectionBanner = document.getElementById("connection-banner");
-      const bannerIcon = document.getElementById("banner-icon");
-      const bannerStatusLabel = document.getElementById("banner-status-label");
-      const connectionInfo = document.getElementById("connection-info");
-
-      // Add UI elements for progress tracking
-      const progressContainer = document.getElementById("progress-container");
-      const progressBar = document.getElementById("progress-bar");
-      const progressMessage = document.getElementById("progress-message");
-      const progressStatus = document.getElementById("progress-status");
-      const progressPercentage = document.getElementById("progress-percentage");
-
-      function buildBannerInfo(isConnected) {
-        if (!isConnected) {
-          return `<a class="link" onclick="window.open('https://github.com/ufira-ai/vibma', '_blank')">${t("setupGuide")}</a>`;
-        }
-        let info = "";
-        if (state.mcpPeer) {
-          const name = state.mcpPeer.name || "unknown";
-          const ver = state.mcpPeer.version ? ` (v${state.mcpPeer.version})` : "";
-          info += `<strong>${name}${ver}</strong>`;
-        } else {
-          info += `${t("waitingMcp")}`;
-        }
-        if (state.versionWarning) {
-          info += `<br><span class="banner-warning-text">${state.versionWarning}</span>`;
-        }
-        return info;
-      }
-
-      function renderBanner(visualState, infoHtml, labelText) {
-        const iconMap = {
-          connected: "✓",
-          connecting: "↻",
-          error: "!",
-          warning: "⚠",
-          disconnected: "○",
-          info: "○",
-        };
-        bannerStatusLabel.textContent = labelText;
-        bannerIcon.className = `banner-icon${visualState === "connecting" ? " spinning" : ""}`;
-        bannerIcon.textContent = iconMap[visualState] || "○";
-        connectionInfo.innerHTML = infoHtml;
-        connectionBanner.className = `connection-banner ${visualState}`;
-      }
-
-      // Initialize UI
-      function updateConnectionStatus(isConnected, message) {
-        state.connected = isConnected;
-
-        const isTransient =
-          message === t("statusConnecting") ||
-          message === t("statusDisconnecting") ||
-          message === t("statusResetting");
-        const isConnecting = message === t("statusConnecting");
-        const isError =
-          !isConnected &&
-          Boolean(message) &&
-          message !== t("statusDisconnected") &&
-          message !== t("statusDisconnectedFromServer") &&
-          !isTransient;
-        const isWarning = isConnected && Boolean(state.versionWarning);
-
-        let labelText = isConnected ? t("statusBadgeConnected") : t("statusBadgeDisconnected");
-        let infoHtml = isTransient ? message : buildBannerInfo(isConnected);
-        let visualState = isConnected ? "connected" : "disconnected";
-
-        if (!isConnected && isConnecting) {
-          labelText = t("statusBadgeConnecting");
-          infoHtml = buildBannerInfo(false);
-          visualState = "connecting";
-        } else if (isError) {
-          labelText = t("statusBadgeError");
-          infoHtml = message;
-          visualState = "error";
-        } else if (isWarning) {
-          visualState = "warning";
-        } else if (isTransient) {
-          visualState = "connecting";
-        }
-
-        renderBanner(visualState, infoHtml, labelText);
-
-        // Keep collapsed bar in sync
-        if (document.body.classList.contains("collapsed")) updateCollapsedStatus();
-
-        connectButton.textContent = isConnected ? t("btnDisconnect") : t("btnConnect");
-        connectButton.className = isConnected ? "secondary" : "";
-        portInput.disabled = isConnected;
-        channelInput.disabled = isConnected;
-      }
-
-      // Connect to WebSocket server
+      // ─── WebSocket ─────────────────────────────────────────────────
       async function connectToServer(port) {
         try {
           if (state.connected && state.socket) {
             updateConnectionStatus(true, t("statusAlreadyConnected"));
             return;
           }
-
           state.serverPort = port;
-          const wsUrl = `ws://localhost:${port}`;
-
-          state.socket = new WebSocket(wsUrl);
+          state.socket = new WebSocket(`ws://localhost:${port}`);
 
           state.socket.onopen = () => {
             const custom = channelInput.value.trim().replace(/[^a-zA-Z0-9_\-]/g, "");
             const channelName = custom || generateChannelName();
-            console.log("Joining channel:", channelName);
             state.channel = channelName;
-
-            state.socket.send(
-              JSON.stringify({
-                type: "join",
-                channel: channelName.trim(),
-                role: "plugin",
-                version: VIBMA_VERSION,
-              })
-            );
+            state.socket.send(JSON.stringify({ type: "join", channel: channelName, role: "plugin", version: VIBMA_VERSION }));
           };
 
           state.socket.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data);
-              console.log("Received message:", data);
-
               if (data.type === "system") {
-                if (data.code === "PEER_JOINED" && data.peer && data.peer.role === "mcp") {
+                if (data.code === "PEER_JOINED" && data.peer?.role === "mcp") {
                   state.mcpPeer = { name: data.peer.name, version: data.peer.version };
                   state.versionWarning = null;
                   updateConnectionStatus(true);
-                } else if (data.code === "PEER_LEFT" && data.peer && data.peer.role === "mcp") {
-                  state.mcpPeer = null;
-                  state.versionWarning = null;
+                } else if (data.code === "PEER_LEFT" && data.peer?.role === "mcp") {
+                  state.mcpPeer = null; state.versionWarning = null;
                   updateConnectionStatus(true);
                 } else if (data.code === "VERSION_MISMATCH") {
                   state.versionWarning = data.message;
                   updateConnectionStatus(true);
                 }
-
                 if (data.message && data.message.result) {
                   state.connected = true;
-                  const channelName = data.channel;
                   updateConnectionStatus(true);
-
-                  parent.postMessage(
-                    {
-                      pluginMessage: {
-                        type: "notify",
-                        message: `Connected to Vibma relay on port ${port} in channel: ${channelName}`,
-                      },
-                    },
-                    "*"
-                  );
-
-                  parent.postMessage(
-                    {
-                      pluginMessage: {
-                        type: "update-settings",
-                        serverPort: port,
-                        channelName: channelInput.value.trim(),
-                      },
-                    },
-                    "*"
-                  );
+                  parent.postMessage({ pluginMessage: { type: "notify", message: `Connected to Vibma relay on port ${port} in channel: ${state.channel}` } }, "*");
+                  parent.postMessage({ pluginMessage: { type: "update-settings", serverPort: port, channelName: channelInput.value.trim() } }, "*");
                 }
               } else if (data.type === "error") {
-                console.error("Relay error:", data.message);
                 const prefix = data.code === "ROLE_OCCUPIED" ? t("connectionRejected") : "Error";
                 state.lastError = data.message;
                 updateConnectionStatus(false, `${prefix}: ${data.message}`);
                 if (state.socket) { state.socket.close(); state.socket = null; }
               }
-
               handleSocketMessage(data);
-            } catch (error) {
-              console.error("Error parsing message:", error);
-            }
+            } catch (e) { console.error("Error parsing message:", e); }
           };
 
           state.socket.onclose = () => {
-            state.connected = false;
-            state.socket = null;
-            state.mcpPeer = null;
-            state.versionWarning = null;
-            if (!state.lastError) {
-              updateConnectionStatus(false, t("statusDisconnectedFromServer"));
-            }
+            state.connected = false; state.socket = null; state.mcpPeer = null; state.versionWarning = null;
+            if (!state.lastError) updateConnectionStatus(false, t("statusDisconnectedFromServer"));
             state.lastError = null;
             if (document.body.classList.contains("collapsed")) updateCollapsedStatus();
           };
 
-          state.socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
+          state.socket.onerror = () => {
             state.lastError = t("statusRelayNotReachable", { port });
             updateConnectionStatus(false, state.lastError);
-            state.connected = false;
-            state.socket = null;
+            state.connected = false; state.socket = null;
             if (document.body.classList.contains("collapsed")) updateCollapsedStatus();
           };
         } catch (error) {
-          console.error("Connection error:", error);
-          updateConnectionStatus(
-            false,
-            t("statusConnectionError", { message: error.message || "Unknown error" })
-          );
+          updateConnectionStatus(false, t("statusConnectionError", { message: error.message || "Unknown error" }));
         }
       }
 
-      // Disconnect from websocket server
       function disconnectFromServer() {
         if (state.socket) {
-          state.socket.close();
-          state.socket = null;
-          state.connected = false;
+          state.socket.close(); state.socket = null; state.connected = false;
           updateConnectionStatus(false, t("statusDisconnectedFromServer"));
         }
       }
 
-      // Handle messages from the WebSocket
       async function handleSocketMessage(payload) {
         const data = payload.message;
-        console.log("handleSocketMessage", data);
+        if (!data) return;
 
         if (data.id && state.pendingRequests.has(data.id)) {
           const { resolve, reject } = state.pendingRequests.get(data.id);
           state.pendingRequests.delete(data.id);
-
-          if (data.error) {
-            reject(new Error(data.error));
-          } else {
-            resolve(data.result);
-          }
+          if (data.error) reject(new Error(data.error));
+          else resolve(data.result);
           return;
         }
 
         if (data.command) {
-          try {
-            parent.postMessage(
-              {
-                pluginMessage: {
-                  type: "execute-command",
-                  id: data.id,
-                  command: data.command,
-                  params: data.params,
-                },
-              },
-              "*"
-            );
-          } catch (error) {
-            sendErrorResponse(data.id, error.message || "Error executing command");
-          }
+          parent.postMessage({
+            pluginMessage: { type: "execute-command", id: data.id, command: data.command, params: data.params },
+          }, "*");
         }
       }
 
-      // Send a command to the WebSocket server
       async function sendCommand(command, params) {
         return new Promise((resolve, reject) => {
-          if (!state.connected || !state.socket) {
-            reject(new Error("Not connected to server"));
-            return;
-          }
-
+          if (!state.connected || !state.socket) { reject(new Error("Not connected to server")); return; }
           const id = generateId();
           state.pendingRequests.set(id, { resolve, reject });
-
-          state.socket.send(
-            JSON.stringify({
-              id,
-              type: "message",
-              channel: state.channel,
-              message: { id, command, params },
-            })
-          );
-
+          state.socket.send(JSON.stringify({ id, type: "message", channel: state.channel, message: { id, command, params } }));
           setTimeout(() => {
-            if (state.pendingRequests.has(id)) {
-              state.pendingRequests.delete(id);
-              reject(new Error("Request timed out"));
-            }
+            if (state.pendingRequests.has(id)) { state.pendingRequests.delete(id); reject(new Error("Request timed out")); }
           }, 30000);
         });
       }
 
-      // Send success response back to WebSocket
       function sendSuccessResponse(id, result) {
-        if (!state.connected || !state.socket) {
-          console.error("Cannot send response: socket not connected");
-          return;
-        }
-
-        state.socket.send(
-          JSON.stringify({
-            id,
-            type: "message",
-            channel: state.channel,
-            message: { id, result },
-          })
-        );
+        if (!state.connected || !state.socket) return;
+        state.socket.send(JSON.stringify({ id, type: "message", channel: state.channel, message: { id, result } }));
       }
 
-      // Send error response back to WebSocket
       function sendErrorResponse(id, errorMessage) {
-        if (!state.connected || !state.socket) {
-          console.error("Cannot send error response: socket not connected");
-          return;
-        }
-
-        state.socket.send(
-          JSON.stringify({
-            id,
-            type: "message",
-            channel: state.channel,
-            message: { id, error: errorMessage, result: {} },
-          })
-        );
+        if (!state.connected || !state.socket) return;
+        state.socket.send(JSON.stringify({ id, type: "message", channel: state.channel, message: { id, error: errorMessage, result: {} } }));
       }
 
-      function generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-      }
-
+      function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
       function generateChannelName() {
-        const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
-        let result = "";
-        for (let i = 0; i < 8; i++) {
-          result += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-        return result;
+        const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        let r = "";
+        for (let i = 0; i < 8; i++) r += chars[Math.floor(Math.random() * chars.length)];
+        return r;
       }
 
-      // Reset tunnel
-      document.getElementById("btn-reset").addEventListener("click", async () => {
-        const port = parseInt(portInput.value, 10) || 3055;
-        const channel = channelInput.value.trim() || "vibma";
-
-        if (state.socket) {
-          state.socket.onclose = null;
-          state.socket.onerror = null;
-          state.socket.onmessage = null;
-          state.socket.close();
-          state.socket = null;
-        }
-        state.connected = false;
-        state.mcpPeer = null;
-        state.versionWarning = null;
-        state.lastError = null;
-        state.pendingRequests.clear();
-
-        updateConnectionStatus(false, t("statusResetting"));
-
-        try {
-          await fetch(`http://localhost:${port}/channels/${encodeURIComponent(channel)}`, { method: "DELETE" });
-        } catch (e) {
-          console.warn("Could not reach relay for reset:", e);
-        }
-
-        setTimeout(() => connectToServer(port), 500);
-      });
-
-      // Connect / disconnect toggle
-      connectButton.addEventListener("click", () => {
-        if (state.connected) {
-          updateConnectionStatus(false, t("statusDisconnecting"));
-          disconnectFromServer();
-        } else {
-          const port = parseInt(portInput.value, 10) || 3055;
-          updateConnectionStatus(false, t("statusConnecting"));
-          connectToServer(port);
-        }
-      });
-
-      // Function to update progress UI
+      // ─── Progress UI ───────────────────────────────────────────────
       function updateProgressUI(progressData) {
         progressContainer.classList.remove("hidden");
-
         const progress = progressData.progress || 0;
         progressBar.style.width = `${progress}%`;
         progressPercentage.textContent = `${progress}%`;
         progressMessage.textContent = progressData.message || t("inProgress");
-
-        if (progressData.status === "started") {
-          progressStatus.textContent = t("started");
-          progressStatus.className = "";
-        } else if (progressData.status === "in_progress") {
-          progressStatus.textContent = t("inProgress");
-          progressStatus.className = "";
-        } else if (progressData.status === "completed") {
-          progressStatus.textContent = t("completed");
-          progressStatus.className = "operation-complete";
-          setTimeout(() => {
-            progressContainer.classList.add("hidden");
-          }, 5000);
-        } else if (progressData.status === "error") {
-          progressStatus.textContent = t("errorStatus");
-          progressStatus.className = "operation-error";
-        }
+        if (progressData.status === "started") { progressStatus.textContent = t("started"); progressStatus.className = ""; }
+        else if (progressData.status === "in_progress") { progressStatus.textContent = t("inProgress"); progressStatus.className = ""; }
+        else if (progressData.status === "completed") {
+          progressStatus.textContent = t("completed"); progressStatus.className = "operation-complete";
+          setTimeout(() => progressContainer.classList.add("hidden"), 5000);
+        } else if (progressData.status === "error") { progressStatus.textContent = t("errorStatus"); progressStatus.className = "operation-error"; }
       }
 
-      // Send operation progress update to server
       function sendProgressUpdateToServer(progressData) {
-        if (!state.connected || !state.socket) {
-          console.error("Cannot send progress update: socket not connected");
-          return;
-        }
-
-        console.log("Sending progress update to server:", progressData);
-
-        state.socket.send(
-          JSON.stringify({
-            id: progressData.commandId,
-            type: "progress_update",
-            channel: state.channel,
-            message: {
-              id: progressData.commandId,
-              type: "progress_update",
-              data: progressData,
-            },
-          })
-        );
+        if (!state.connected || !state.socket) return;
+        state.socket.send(JSON.stringify({ id: progressData.commandId, type: "progress_update", channel: state.channel, message: { id: progressData.commandId, type: "progress_update", data: progressData } }));
       }
 
-      // Reset progress UI
-      function resetProgressUI() {
-        progressContainer.classList.add("hidden");
-        progressBar.style.width = "0%";
-        progressMessage.textContent = t("noOperation");
-        progressStatus.textContent = t("notStarted");
-        progressStatus.className = "";
-        progressPercentage.textContent = "0%";
-      }
-
-      // Listen for messages from the plugin code
+      // ─── Plugin message listener ───────────────────────────────────
       window.onmessage = (event) => {
         const message = event.data.pluginMessage;
         if (!message) return;
-
-        console.log("Received message from plugin:", message);
 
         switch (message.type) {
           case "restore-settings":
@@ -1131,10 +1030,22 @@
             connectButton.click();
             break;
           case "command-result":
-            sendSuccessResponse(message.id, message.result);
+            if (state.pendingRequests.has(message.id)) {
+              const { resolve } = state.pendingRequests.get(message.id);
+              state.pendingRequests.delete(message.id);
+              resolve(message.result);
+            } else {
+              sendSuccessResponse(message.id, message.result);
+            }
             break;
           case "command-error":
-            sendErrorResponse(message.id, message.error);
+            if (state.pendingRequests.has(message.id)) {
+              const { reject } = state.pendingRequests.get(message.id);
+              state.pendingRequests.delete(message.id);
+              reject(new Error(message.error));
+            } else {
+              sendErrorResponse(message.id, message.error);
+            }
             break;
           case "command_progress":
             updateProgressUI(message);
@@ -1143,7 +1054,34 @@
         }
       };
 
-      // ─── Resize Grip ─────────────────────────────────────────────
+      // ─── Connect button ────────────────────────────────────────────
+      connectButton.addEventListener("click", () => {
+        if (state.connected) {
+          updateConnectionStatus(false, t("statusDisconnecting"));
+          disconnectFromServer();
+        } else {
+          const port = parseInt(portInput.value, 10) || 3055;
+          updateConnectionStatus(false, t("statusConnecting"));
+          connectToServer(port);
+        }
+      });
+
+      // ─── Reset tunnel ──────────────────────────────────────────────
+      document.getElementById("btn-reset").addEventListener("click", async () => {
+        const port = parseInt(portInput.value, 10) || 3055;
+        const channel = channelInput.value.trim() || "vibma";
+        if (state.socket) {
+          state.socket.onclose = null; state.socket.onerror = null; state.socket.onmessage = null;
+          state.socket.close(); state.socket = null;
+        }
+        state.connected = false; state.mcpPeer = null; state.versionWarning = null;
+        state.lastError = null; state.pendingRequests.clear();
+        updateConnectionStatus(false, t("statusResetting"));
+        try { await fetch(`http://localhost:${port}/channels/${encodeURIComponent(channel)}`, { method: "DELETE" }); } catch (e) {}
+        setTimeout(() => connectToServer(port), 500);
+      });
+
+      // ─── Resize grip ───────────────────────────────────────────────
       const resizeGrip = document.getElementById("resize-grip");
       let currentWidth = 300;
 
@@ -1151,32 +1089,23 @@
         e.preventDefault();
         const offsetFromRight = window.innerWidth - e.clientX;
         document.body.classList.add("resizing");
-
         const onMouseMove = (e) => {
           const newWidth = Math.max(260, Math.min(400, e.clientX + offsetFromRight));
           currentWidth = newWidth;
           const height = document.body.classList.contains("collapsed") ? 48 : 480;
-          parent.postMessage(
-            { pluginMessage: { type: "resize", width: newWidth, height } },
-            "*"
-          );
+          parent.postMessage({ pluginMessage: { type: "resize", width: newWidth, height } }, "*");
         };
-
         const onMouseUp = () => {
           document.body.classList.remove("resizing");
           window.removeEventListener("mousemove", onMouseMove);
           window.removeEventListener("mouseup", onMouseUp);
-          parent.postMessage(
-            { pluginMessage: { type: "save-width", width: currentWidth } },
-            "*"
-          );
+          parent.postMessage({ pluginMessage: { type: "save-width", width: currentWidth } }, "*");
         };
-
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
       });
 
-      // ─── Collapse / Expand ──────────────────────────────────────
+      // ─── Collapse / Expand ─────────────────────────────────────────
       const collapseToggle = document.getElementById("collapse-toggle");
       const expandToggle = document.getElementById("expand-toggle");
       const collapsedIcon = document.getElementById("collapsed-icon");
@@ -1195,19 +1124,11 @@
           const ver = state.mcpPeer.version ? ` (v${state.mcpPeer.version})` : "";
           collapsedPeer.textContent = `${name}${ver}`;
         } else if (state.connected || state.socket) {
-          collapsedIcon.textContent = "✓";
-          collapsedIcon.style.borderColor = "#2f8c5c";
-          collapsedIcon.style.color = "#5fd69a";
-          collapsedPeer.style.color = "#bfe7d1";
-          collapsedLabel.textContent = "Waiting for connection";
-          collapsedPeer.textContent = "";
+          collapsedIcon.textContent = "✓"; collapsedIcon.style.borderColor = "#2f8c5c"; collapsedIcon.style.color = "#5fd69a";
+          collapsedPeer.style.color = "#bfe7d1"; collapsedLabel.textContent = "Waiting for connection"; collapsedPeer.textContent = "";
         } else {
-          collapsedIcon.textContent = "✕";
-          collapsedIcon.style.borderColor = "#6b6b6b";
-          collapsedIcon.style.color = "#999";
-          collapsedPeer.style.color = "#999";
-          collapsedLabel.textContent = t("statusBadgeDisconnected") || "Disconnected";
-          collapsedPeer.textContent = "";
+          collapsedIcon.textContent = "✕"; collapsedIcon.style.borderColor = "#6b6b6b"; collapsedIcon.style.color = "#999";
+          collapsedPeer.style.color = "#999"; collapsedLabel.textContent = t("statusBadgeDisconnected") || "Disconnected"; collapsedPeer.textContent = "";
         }
         collapsedIcon.className = "banner-icon";
       }
@@ -1218,39 +1139,23 @@
           document.body.style.transition = "none";
           document.body.classList.toggle("collapsed", collapsed);
           if (collapsed) updateCollapsedStatus();
-          parent.postMessage(
-            { pluginMessage: { type: "resize", width: currentWidth, height } },
-            "*"
-          );
+          parent.postMessage({ pluginMessage: { type: "resize", width: currentWidth, height } }, "*");
           requestAnimationFrame(() => { document.body.style.transition = ""; });
           return;
         }
-
-        // Phase 1: fade out
         document.body.style.opacity = "0";
-
         setTimeout(() => {
-          // Phase 2: swap layout + resize
           document.body.classList.toggle("collapsed", collapsed);
           if (collapsed) updateCollapsedStatus();
-          parent.postMessage(
-            { pluginMessage: { type: "resize", width: currentWidth, height } },
-            "*"
-          );
-
-          // Phase 3: fade in
-          requestAnimationFrame(() => {
-            document.body.style.opacity = "1";
-          });
+          parent.postMessage({ pluginMessage: { type: "resize", width: currentWidth, height } }, "*");
+          requestAnimationFrame(() => { document.body.style.opacity = "1"; });
         }, 120);
       }
 
       collapseToggle.addEventListener("click", () => setCollapsed(true));
       expandToggle.addEventListener("click", () => setCollapsed(false));
 
-      // Apply default locale on load
       applyLocale();
-
     </script>
   </body>
 </html>
