@@ -244,6 +244,63 @@
       .generate-status.error { color: #f87171; }
       .generate-status.loading { color: #7dbfe8; }
 
+      /* Shimmer loading strip */
+      .shimmer-container {
+        display: none;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .shimmer-container.visible { display: block; }
+      .shimmer-bar {
+        position: relative;
+        background: #1a1a2e;
+        border: 1px solid #2a2a4a;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #7a8abf;
+        font-style: italic;
+        overflow: hidden;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+      }
+      .shimmer-bar::after {
+        content: "";
+        position: absolute;
+        top: 0; left: -100%; width: 60%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(100,120,255,0.08), transparent);
+        animation: shimmer-sweep 1.8s ease-in-out infinite;
+      }
+      @keyframes shimmer-sweep {
+        0%   { left: -60%; }
+        100% { left: 130%; }
+      }
+      #shimmer-text {
+        position: relative;
+        z-index: 1;
+        line-height: 1.4;
+      }
+
+      /* ─── Settings panel AI config ───────────────────── */
+      .settings-section-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+      }
+      .ai-config-section {
+        padding-top: 4px;
+        border-top: 1px solid #232323;
+      }
+      #api-key {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 12px;
+        letter-spacing: 0.02em;
+      }
+
       /* ─── Settings panel ─────────────────────────────── */
       .settings-panel {
         padding: 14px 16px 16px;
@@ -527,6 +584,13 @@
           rows="5"
         ></textarea>
 
+        <!-- Shimmer loading strip -->
+        <div class="shimmer-container" id="shimmer-container">
+          <div class="shimmer-bar">
+            <span id="shimmer-text"></span>
+          </div>
+        </div>
+
         <!-- Selection toggle -->
         <label class="selection-toggle">
           <input type="checkbox" id="apply-selection" />
@@ -586,6 +650,29 @@
 
         <!-- Warning -->
         <div id="warning-box"></div>
+
+        <!-- AI Config -->
+        <div class="ai-config-section">
+          <div class="settings-section-label">AI Config</div>
+          <div class="form-group">
+            <label for="api-key">API Key</label>
+            <input
+              type="password"
+              id="api-key"
+              placeholder="sk-… or sk-ant-… or gsk_…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="form-group">
+            <label for="model-select">Model</label>
+            <select id="model-select">
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Anthropic)</option>
+              <option value="gpt-4o">GPT-4o (OpenAI)</option>
+              <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq)</option>
+            </select>
+          </div>
+        </div>
 
         <!-- Progress -->
         <div id="progress-container" class="progress-section hidden">
@@ -672,6 +759,7 @@
         mcpPeer: null,
         versionWarning: null,
         dsContext: null,
+        shimmerInterval: null,
       };
 
       document.getElementById("version-badge").textContent = `v${VIBMA_VERSION}`;
@@ -712,6 +800,18 @@
       const generateBtn = document.getElementById("btn-generate");
       const clearBtn = document.getElementById("btn-clear");
       const generateStatus = document.getElementById("generate-status");
+      const apiKeyInput = document.getElementById("api-key");
+      const modelSelect = document.getElementById("model-select");
+      const shimmerContainer = document.getElementById("shimmer-container");
+      const shimmerText = document.getElementById("shimmer-text");
+
+      // AI config persisted via figma.clientStorage (localStorage is blocked in data: URLs)
+      apiKeyInput.addEventListener("input", () =>
+        parent.postMessage({ pluginMessage: { type: "update-settings", apiKey: apiKeyInput.value } }, "*")
+      );
+      modelSelect.addEventListener("change", () =>
+        parent.postMessage({ pluginMessage: { type: "update-settings", model: modelSelect.value } }, "*")
+      );
 
       // ─── Auto-detect Design System ─────────────────────────────────
       detectBtn.addEventListener("click", async () => {
@@ -724,6 +824,10 @@
         try {
           const result = await sendPluginCommand("get_full_design_system_context", {});
           state.dsContext = result;
+          // Push component key map to code.ts so create_instance can use it
+          if (result.componentKeyMap && Object.keys(result.componentKeyMap).length > 0) {
+            parent.postMessage({ pluginMessage: { type: "cache-component-keys", componentKeyMap: result.componentKeyMap } }, "*");
+          }
           dsSummary.className = "ds-summary visible";
           dsSummaryText.textContent = result.summary || "Design system detected.";
         } catch (err) {
@@ -736,35 +840,39 @@
         }
       });
 
-      // ─── Generate ──────────────────────────────────────────────────
+      // ─── Generate (self-contained LLM mode) ────────────────────────
       generateBtn.addEventListener("click", async () => {
         const prompt = promptInput.value.trim();
         if (!prompt) {
           showGenerateStatus("Enter a prompt first.", "error");
           return;
         }
-        if (!state.connected) {
-          showGenerateStatus("Not connected. Go to Settings tab to connect.", "error");
+
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+          showGenerateStatus("Please add your API key in Settings.", "error");
           return;
         }
 
+        const model = modelSelect.value;
+
         generateBtn.disabled = true;
-        showGenerateStatus("Sending to agent…", "loading");
+        showGenerateStatus("", "");
+        startShimmer();
 
         try {
-          const payload = {
-            prompt,
-            applyToSelection: applySelection.checked,
-            designSystemContext: state.dsContext || null,
-          };
-          const result = await sendCommand("generate", payload);
-          showGenerateStatus(
-            result?.message || "Done.",
-            "success"
-          );
+          const systemPrompt = buildSystemPrompt(state.dsContext, applySelection.checked);
+          const results = await sendLLMGenerate(apiKey, model, prompt, systemPrompt);
+          stopShimmer();
+          if (results.total === 0) {
+            showGenerateStatus("The AI didn't return any design actions. Try a more specific prompt.", "error");
+          } else {
+            showGenerateStatus(`Done — ${results.succeeded} action${results.succeeded !== 1 ? "s" : ""} applied.`, "success");
+          }
         } catch (err) {
-          showGenerateStatus(err.message || "Error sending prompt.", "error");
+          showGenerateStatus(friendlyLLMError(err), "error");
         } finally {
+          stopShimmer();
           generateBtn.disabled = false;
         }
       });
@@ -778,7 +886,139 @@
 
       function showGenerateStatus(msg, type) {
         generateStatus.textContent = msg;
-        generateStatus.className = `generate-status visible ${type}`;
+        generateStatus.className = msg ? `generate-status visible ${type}` : "generate-status";
+      }
+
+      // ─── Shimmer helpers ────────────────────────────────────────────
+      const SHIMMER_PHRASES = [
+        "Negotiating with your design system like it's my toxic ex…",
+        "Convincing the variants to behave today…",
+        "Auto-layout is my therapist right now…",
+        "Token alignment ceremony in progress…",
+        "Trying not to anger the Component Gods…",
+        "Gaslighting absolute positioning out of existence…",
+        "Component set speed-dating round 3…",
+        "Your DS is judging me and I'm scared…",
+        "Making sure it doesn't look like a 2018 SaaS dashboard…",
+        "Currently romancing the auto-layout engine…",
+        "Variant therapy session is going well…",
+        "Praying the tokens stay consistent this time…",
+        "Doing the \"not ugly\" dance with your components…",
+        "Figma fairy godmother just showed up drunk…",
+        "Stealing ideas from your own design system…",
+        "Making the login form look more expensive than it is…",
+        "Component matchmaking sponsored by your DS…",
+        "In a committed relationship with good spacing…",
+        "Trying to make your design system proud…",
+        "Auto-layout sorcery at maximum power…",
+        "The variants are flirting back…",
+        "Currently committing design system crimes (legal ones)…",
+        "Whispering sweet nothings to your variables…",
+        "Making sure it passes the \"looks good at 3am\" test…",
+        "Your attached libraries are watching… and judging…",
+        "Doing the responsible thing with button variants…",
+        "Component glow-up in progress…",
+        "Aligning elements and my life choices…",
+        "The DS said \"use me properly\" so I'm trying…",
+        "Currently gaslighting Figma into using tokens…",
+        "Making it so clean even the PMs will notice…",
+        "Variant selection is a love language…",
+        "Sprinkling premium design system dust…",
+        "In deep conversation with your 91 component sets…",
+        "Trying to one-up the last version you designed…",
+        "Auto-layout is my love language…",
+        "The tokens are aligned and so am I…",
+        "Component therapy is going surprisingly well…",
+        "Making your design system look like a flex…",
+        "Doing the \"not another rectangle\" challenge…",
+        "Your DS is my spirit animal right now…",
+        "Currently committing to good spacing…",
+        "The variants are in a group chat about this…",
+        "Making it pretty enough to screenshot and brag…",
+        "Figma is scared of how consistent this is…",
+        "Consulting the ancient scroll of design tokens…",
+        "Giving your components the glow-up they deserve…",
+        "Auto-layout and chill…",
+        "The design system said \"finally someone gets me\"…",
+        "Building this like it's going straight to the design system hall of fame…",
+      ];
+
+      function startShimmer() {
+        shimmerContainer.classList.add("visible");
+        let idx = Math.floor(Math.random() * SHIMMER_PHRASES.length);
+        shimmerText.textContent = SHIMMER_PHRASES[idx];
+        state.shimmerInterval = setInterval(() => {
+          idx = (idx + 1 + Math.floor(Math.random() * (SHIMMER_PHRASES.length - 1))) % SHIMMER_PHRASES.length;
+          shimmerText.textContent = SHIMMER_PHRASES[idx];
+        }, 1200 + Math.random() * 800);
+      }
+
+      function stopShimmer() {
+        shimmerContainer.classList.remove("visible");
+        if (state.shimmerInterval) { clearInterval(state.shimmerInterval); state.shimmerInterval = null; }
+      }
+
+      // ─── LLM helpers (UI-side only — no fetch) ─────────────────────
+      function friendlyLLMError(err) {
+        const msg = err.message || "Unknown error";
+        if (msg.includes("API key") || msg.includes("Invalid")) return msg;
+        if (msg.includes("rate limit") || msg.includes("Rate limit")) return msg;
+        if (msg.includes("Network error")) return msg;
+        if (msg.includes("fetch")) return "Network error — check your internet connection.";
+        return msg;
+      }
+
+      function buildSystemPrompt(dsContext, applyToSelection) {
+        let ds = "No design system detected.";
+        let componentList = "";
+        let collectionList = "";
+
+        if (dsContext) {
+          ds = dsContext.summary || ds;
+          if (dsContext.componentSets && dsContext.componentSets.length > 0) {
+            // Build component list — mark which ones have importable keys
+            const keyMap = dsContext.componentKeyMap || {};
+            const names = dsContext.componentSets.slice(0, 60).map(c => {
+              const hasKey = !!keyMap[c.name];
+              return hasKey ? `✓${c.name}` : c.name;
+            }).join(", ");
+            componentList = `\nAvailable components (✓ = directly instantiable with create_instance): ${names}`;
+          }
+          if (dsContext.variableCollections && dsContext.variableCollections.length > 0) {
+            const cols = dsContext.variableCollections.slice(0, 20).map(c => {
+              const varNames = (c.variables || []).slice(0, 15).map(v => v.name).join(", ");
+              return `${c.name} (${c.modes?.join("/") ?? ""})${varNames ? ": " + varNames : ""}`;
+            }).join("\n  ");
+            collectionList = `\nVariable collections:\n  ${cols}`;
+          }
+        }
+
+        const selectionNote = applyToSelection
+          ? "\n\nIMPORTANT: The user has checked 'Apply to current selection'. First call get_selection to find the selected node, then build inside or relative to it."
+          : "";
+
+        return `You are a Figma design agent. You create UI components on the Figma canvas by calling the provided tools.
+
+DESIGN SYSTEM CONTEXT:
+${ds}${componentList}${collectionList}
+
+PARAM NAMES — use EXACTLY these (wrong names are rejected):
+- create_auto_layout: layoutMode (not direction), itemSpacing (not gap), fillColor "#hex" (not fill), fillStyleName "DS/Name"
+- create_text: fontColor "#hex" (not fill or color), fontWeight 400/600/700
+- create_rectangle: fillColor "#hex" (not fill), strokeColor "#hex" (not stroke/border), strokeWeight (not strokeWidth)
+- create_instance: componentName "exact set name as shown in ✓ list above"
+
+RULES — follow these strictly:
+1. Always wrap UI in auto-layout frames (create_auto_layout). Never use create_frame.
+2. Set layoutMode: "VERTICAL" for stacked layouts, "HORIZONTAL" for rows.
+3. Give every element a meaningful name.
+4. PREFER create_instance for any element that matches a ✓ component (buttons, inputs, checkboxes, etc.). create_instance only works if the component was already used somewhere in the file — if it fails, fall back to create_rectangle immediately without retrying.
+5. Use fillStyleName / textStyleName to reference DS styles where available.
+6. Never use x/y inside auto-layout frames — use itemSpacing + padding on the parent instead.
+7. Use padding 16–24 for containers, 8–12 for inner components.
+8. Keep designs clean and minimal.${selectionNote}
+
+Return ONLY tool calls — no explanatory prose. Be precise and complete.`;
       }
 
       // ─── sendPluginCommand: send to plugin sandbox (handles locally) ─
@@ -795,6 +1035,22 @@
               reject(new Error("Command timed out"));
             }
           }, 30000);
+        });
+      }
+
+      function sendLLMGenerate(apiKey, model, userPrompt, systemPrompt) {
+        return new Promise((resolve, reject) => {
+          const id = generateId();
+          state.pendingRequests.set(id, { resolve, reject });
+          parent.postMessage({
+            pluginMessage: { type: "llm-generate", id, apiKey, model, userPrompt, systemPrompt },
+          }, "*");
+          setTimeout(() => {
+            if (state.pendingRequests.has(id)) {
+              state.pendingRequests.delete(id);
+              reject(new Error("LLM request timed out after 2 minutes"));
+            }
+          }, 120000);
         });
       }
 
@@ -1018,6 +1274,11 @@
             if (message.serverPort) portInput.value = message.serverPort;
             if (message.channelName) channelInput.value = message.channelName;
             if (message.uiWidth) currentWidth = message.uiWidth;
+            if (message.apiKey) apiKeyInput.value = message.apiKey;
+            if (message.model) {
+              const opt = modelSelect.querySelector(`option[value="${message.model}"]`);
+              if (opt) modelSelect.value = message.model;
+            }
             applyLocale();
             break;
           case "connection-status":
@@ -1045,6 +1306,15 @@
               reject(new Error(message.error));
             } else {
               sendErrorResponse(message.id, message.error);
+            }
+            break;
+          case "llm-result":
+          case "llm-error":
+            if (state.pendingRequests.has(message.id)) {
+              const { resolve, reject } = state.pendingRequests.get(message.id);
+              state.pendingRequests.delete(message.id);
+              if (message.type === "llm-error") reject(new Error(message.error));
+              else resolve({ succeeded: message.succeeded, total: message.total });
             }
             break;
           case "command_progress":

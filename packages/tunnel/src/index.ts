@@ -95,6 +95,25 @@ const httpServer = createServer((req, res) => {
     return;
   }
 
+  // LLM proxy: POST /llm — forwards {url, headers, body} to LLM API server-side (no CORS)
+  if (req.method === "POST" && req.url === "/llm") {
+    let raw = "";
+    req.on("data", (chunk: Buffer) => { raw += chunk.toString(); });
+    req.on("end", async () => {
+      try {
+        const { url, headers, body } = JSON.parse(raw);
+        const upstream = await fetch(url, { method: "POST", headers, body });
+        const text = await upstream.text();
+        res.writeHead(upstream.status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(text);
+      } catch (e: any) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: e.message } }));
+      }
+    });
+    return;
+  }
+
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("WebSocket server running");
 });

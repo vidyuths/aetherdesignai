@@ -64,19 +64,43 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
   const localComponentsCount = allComponentNodes
     .filter((n: any) => n.type === "COMPONENT").length;
 
-  // 4. Library component sets — infer from instances referencing remote components
+  // 4. Library component sets
+  // IMPORTANT: teamLibrary.getComponentsInLibraryComponentSetAsync() returns keys that are
+  // NOT compatible with figma.importComponentByKeyAsync() — they are set-level library keys,
+  // not published component keys. Only use the teamLibrary API for component SET NAMES.
+  // Valid importable keys can only come from existing instances (.getMainComponentAsync().key).
   const libraryComponentSetNames = new Set<string>();
   const libraryNames = new Set<string>();
+  const componentKeyMap: Record<string, { setKey: string; componentKey: string; libraryName: string }> = {};
+
+  // A. Collect component SET NAMES from teamLibrary (do NOT fetch individual component keys)
+  try {
+    const availableSets = await (figma as any).teamLibrary.getAvailableLibraryComponentSetsAsync();
+    for (const set of availableSets) {
+      libraryComponentSetNames.add(set.name);
+      if (set.libraryName) libraryNames.add(set.libraryName);
+    }
+  } catch (_) {
+    // teamLibrary API not available — names will come from instance scan below
+  }
+
+  // B. Collect VALID component keys by scanning existing instances (these keys work with importComponentByKeyAsync)
   const instances: any[] = figma.root.findAllWithCriteria({ types: ["INSTANCE"] as any });
   for (const inst of instances) {
     try {
       const mainComponent = await inst.getMainComponentAsync();
-      if (mainComponent?.remote) {
+      if (mainComponent?.remote && mainComponent.key) {
         const setName = mainComponent.parent?.name ?? mainComponent.name;
-        libraryComponentSetNames.add(setName);
-        // Try to collect library name from component description or containing set
+        libraryComponentSetNames.add(setName); // capture any names missed by teamLibrary API
         const libName = (mainComponent as any).libraryName ?? (mainComponent.parent as any)?.libraryName;
         if (libName) libraryNames.add(libName);
+        if (!componentKeyMap[setName]) {
+          componentKeyMap[setName] = {
+            setKey: "",
+            componentKey: mainComponent.key,
+            libraryName: libName ?? "",
+          };
+        }
       }
     } catch (_) {
       continue;
@@ -115,6 +139,7 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
     currentPage,
     variableCollections,
     componentSets,
+    componentKeyMap,
     localComponentsCount,
     hasAttachedLibraries,
     attachedLibraryNames: Array.from(libraryNames),
