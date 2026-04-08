@@ -260,6 +260,29 @@ async function handleCreateInstance(params: any): Promise<any> {
     try { return await importAndPlace(state.componentKeyMap[fuzzyKey].componentKey); } catch (_) {}
   }
 
+  // 2b. Fresh-file fallback: use the stored set key to fetch per-variant component keys on demand.
+  //     getComponentsInLibraryComponentSetAsync returns LibraryComponent[] whose .key values
+  //     ARE valid for importComponentByKeyAsync — unlike the set key itself.
+  //     This handles files where Auto-detect ran but no instances exist on canvas yet.
+  const setKeyEntry = entry
+    ?? (fuzzyKey ? state.componentKeyMap[fuzzyKey] : null)
+    ?? (() => {
+      const k = Object.keys(state.componentKeyMap).find(
+        k => k.toLowerCase() === lower || k.toLowerCase().includes(lower) || lower.includes(k.toLowerCase()),
+      );
+      return k ? state.componentKeyMap[k] : null;
+    })();
+  if (setKeyEntry?.setKey) {
+    try {
+      const libraryComps: any[] = await (figma as any).teamLibrary.getComponentsInLibraryComponentSetAsync(setKeyEntry.setKey);
+      if (libraryComps?.length) {
+        for (const lc of libraryComps) {
+          try { return await importAndPlace(lc.key); } catch (_) { continue; }
+        }
+      }
+    } catch (_) {}
+  }
+
   // 3. Local component fallback
   const localMatch = figma.root.findOne(
     (n: any) => (n.type === "COMPONENT" || n.type === "COMPONENT_SET") &&
@@ -272,7 +295,22 @@ async function handleCreateInstance(params: any): Promise<any> {
     return placeInstance(comp);
   }
 
-  return { error: `Component "${componentName}" has no instances in the file yet — it can't be imported. Use create_rectangle as a fallback, or drag the component from the Assets panel first then retry.` };
+  // Automatic fallback: all import paths exhausted — create a plain auto-layout frame so
+  // the LLM can still nest children inside it. Rectangles cannot have children, so we never
+  // return an error that would tempt the LLM to use create_rectangle instead.
+  console.warn(`Component "${componentName}" could not be imported — falling back to auto-layout frame`);
+  try {
+    const fallbackFrame = await allFigmaHandlers.create_auto_layout({
+      name: componentName,
+      layoutMode: "VERTICAL",
+      ...(parentId ? { parentId } : {}),
+      ...(width != null ? { width } : {}),
+      ...(height != null ? { height } : {}),
+    });
+    return fallbackFrame;
+  } catch (fallbackErr: any) {
+    return { error: `Component "${componentName}" could not be imported and auto-layout fallback also failed: ${fallbackErr?.message}` };
+  }
 }
 
 async function handleCommand(command: string, params: any): Promise<any> {
@@ -363,7 +401,7 @@ const FIGMA_TOOLS = [
   },
   {
     name: "create_instance",
-    description: "Place a library component by its exact set name. ONLY works if that component already exists somewhere in the file (on any page). If create_instance returns an error, fall back to create_rectangle.",
+    description: "Place a library component from the attached design system by its exact set name. Use this for ALL ✓ components — no prior placement needed. If create_instance returns an error, use create_auto_layout as a placeholder frame (NEVER create_rectangle — rectangles cannot have children).",
     parameters: {
       type: "object",
       properties: {

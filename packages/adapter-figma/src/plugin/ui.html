@@ -1012,7 +1012,7 @@ RULES — follow these strictly:
 1. Always wrap UI in auto-layout frames (create_auto_layout). Never use create_frame.
 2. Set layoutMode: "VERTICAL" for stacked layouts, "HORIZONTAL" for rows.
 3. Give every element a meaningful name.
-4. PREFER create_instance for any element that matches a ✓ component (buttons, inputs, checkboxes, etc.). create_instance only works if the component was already used somewhere in the file — if it fails, fall back to create_rectangle immediately without retrying.
+4. PREFER create_instance for any element that matches a ✓ component (buttons, inputs, checkboxes, etc.). If create_instance fails for any reason, immediately fall back to create_auto_layout — do NOT try create_rectangle. Rectangles cannot have children and will cause cascading errors. Always prefer clean auto-layout structures over bare rectangles.
 5. Use fillStyleName / textStyleName to reference DS styles where available.
 6. Never use x/y inside auto-layout frames — use itemSpacing + padding on the parent instead.
 7. Use padding 16–24 for containers, 8–12 for inner components.

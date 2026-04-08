@@ -73,15 +73,49 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
   const libraryNames = new Set<string>();
   const componentKeyMap: Record<string, { setKey: string; componentKey: string; libraryName: string }> = {};
 
-  // A. Collect component SET NAMES from teamLibrary (do NOT fetch individual component keys)
+  // Load cached component data from previous detections (persists across sessions)
   try {
-    const availableSets = await (figma as any).teamLibrary.getAvailableLibraryComponentSetsAsync();
+    const cachedMap = await (figma as any).clientStorage.getAsync("vibma_componentKeyMap");
+    if (cachedMap && typeof cachedMap === "object") Object.assign(componentKeyMap, cachedMap);
+    const cachedLibNames = await (figma as any).clientStorage.getAsync("vibma_libraryNames");
+    if (Array.isArray(cachedLibNames)) cachedLibNames.forEach((n: string) => libraryNames.add(n));
+  } catch (_) {}
+
+  // A. Collect component set names AND set keys from teamLibrary.
+  //    Set keys (not individual component keys) are stored in componentKeyMap so that
+  //    handleCreateInstance can call getComponentsInLibraryComponentSetAsync(setKey)
+  //    on-demand on fresh files where no instances have been placed yet.
+  let componentSetFetchError: string | null = null;
+  try {
+    const tl = (figma as any).teamLibrary;
+    if (typeof tl?.getAvailableLibraryComponentSetsAsync !== "function") {
+      throw new Error("getAvailableLibraryComponentSetsAsync is not available in this Figma context");
+    }
+    const availableSets = await tl.getAvailableLibraryComponentSetsAsync();
     for (const set of availableSets) {
       libraryComponentSetNames.add(set.name);
       if (set.libraryName) libraryNames.add(set.libraryName);
+      // Store set key so handleCreateInstance can fetch per-component keys on demand.
+      // Don't overwrite — instance scan (section B) may later fill in a real componentKey.
+      if (!componentKeyMap[set.name]) {
+        componentKeyMap[set.name] = {
+          setKey: set.key ?? "",
+          componentKey: "",
+          libraryName: set.libraryName ?? "",
+        };
+      }
     }
-  } catch (_) {
-    // teamLibrary API not available — names will come from instance scan below
+  } catch (e: any) {
+    componentSetFetchError = e?.message ?? String(e);
+    console.warn("[Vibma] Library component set detection failed:", componentSetFetchError);
+  }
+
+  // Populate libraryNames from variable collections as a reliable fallback.
+  // getAvailableLibraryVariableCollectionsAsync is more widely supported and we already
+  // called it above — use it to ensure library names appear in the summary even when
+  // the component set API is unavailable.
+  for (const col of libraryVariableCollections) {
+    if (col.libraryName) libraryNames.add(col.libraryName);
   }
 
   // B. Collect VALID component keys by scanning existing instances (these keys work with importComponentByKeyAsync)
@@ -107,6 +141,12 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
     }
   }
 
+  // Persist merged componentKeyMap and library names to clientStorage for future sessions
+  try {
+    await (figma as any).clientStorage.setAsync("vibma_componentKeyMap", componentKeyMap);
+    await (figma as any).clientStorage.setAsync("vibma_libraryNames", Array.from(libraryNames));
+  } catch (_) {}
+
   const libraryComponentSets = Array.from(libraryComponentSetNames).map((name) => ({
     name,
     source: "library",
@@ -119,19 +159,45 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
   const localVarCount = localVariableCollections.length;
   const libVarCount = libraryVariableCollections.length;
   const libNames = Array.from(libraryNames);
+  const summaryParts: string[] = [];
 
-  let summary = `Detected ${variableCollections.length} variable collection${variableCollections.length !== 1 ? "s" : ""} `;
-  if (localVarCount > 0 || libVarCount > 0) {
-    summary += `(${localVarCount} local, ${libVarCount} from libraries) `;
-  }
-  summary += `and ${componentSets.length} component set${componentSets.length !== 1 ? "s" : ""} `;
-  if (localComponentSets.length > 0 || libraryComponentSets.length > 0) {
-    summary += `(${localComponentSets.length} local, ${libraryComponentSets.length} from libraries)`;
-  }
+  // Lead with library names — most actionable context for the LLM
   if (libNames.length > 0) {
-    summary += `. Libraries: ${libNames.join(", ")}`;
+    summaryParts.push(`Libraries attached: ${libNames.join(", ")}`);
   }
-  summary = summary.trim() + ".";
+
+  // Variable collections
+  summaryParts.push(
+    `Detected ${variableCollections.length} variable collection${variableCollections.length !== 1 ? "s" : ""} (${localVarCount} local, ${libVarCount} from libraries)`
+  );
+
+  // Component sets: prefer fresh API results, then fall back to cache, then say on-demand
+  if (libraryComponentSets.length > 0) {
+    const sampleNames = libraryComponentSets.slice(0, 6).map(c => c.name).join(", ");
+    const more = libraryComponentSets.length > 6 ? ` +${libraryComponentSets.length - 6} more` : "";
+    summaryParts.push(`${libraryComponentSets.length} library component set${libraryComponentSets.length !== 1 ? "s" : ""}: ${sampleNames}${more}`);
+  } else {
+    const cachedNames = Object.keys(componentKeyMap);
+    if (cachedNames.length > 0) {
+      const sampleNames = cachedNames.slice(0, 6).join(", ");
+      const more = cachedNames.length > 6 ? ` +${cachedNames.length - 6} more` : "";
+      summaryParts.push(`${cachedNames.length} component${cachedNames.length !== 1 ? "s" : ""} known from previous detection: ${sampleNames}${more}`);
+    } else if (libNames.length > 0) {
+      summaryParts.push(`Component set names not enumerable — create_instance resolves components on-demand`);
+    }
+  }
+
+  // Local component sets
+  if (localComponentSets.length > 0) {
+    summaryParts.push(`${localComponentSets.length} local component set${localComponentSets.length !== 1 ? "s" : ""}`);
+  }
+
+  // Fallback guidance whenever libraries are present
+  if (libNames.length > 0 || hasAttachedLibraries) {
+    summaryParts.push(`When unsure of exact names, prefer create_auto_layout as a safe fallback`);
+  }
+
+  const summary = summaryParts.join(". ") + ".";
 
   return {
     summary,
@@ -143,6 +209,7 @@ async function getFullDesignSystemContext(): Promise<Record<string, any>> {
     localComponentsCount,
     hasAttachedLibraries,
     attachedLibraryNames: Array.from(libraryNames),
+    componentSetFetchError,
     timestamp: Date.now(),
   };
 }
