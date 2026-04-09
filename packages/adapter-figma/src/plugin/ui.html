@@ -648,6 +648,37 @@
         <!-- Connect button -->
         <button class="btn-connect-settings" id="btn-connect">Connect</button>
 
+        <!-- Design System remote config -->
+        <div class="ai-config-section">
+          <div class="settings-section-label">Design System Source</div>
+          <div class="form-group">
+            <label for="ds-url">Design System Figma URL</label>
+            <input
+              type="text"
+              id="ds-url"
+              placeholder="https://www.figma.com/file/..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="form-group">
+            <label for="ds-pat">Personal Access Token (PAT)</label>
+            <input
+              type="password"
+              id="ds-pat"
+              placeholder="Enter Figma PAT"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <button class="btn-connect-settings" id="btn-fetch-ds">Fetch Design System</button>
+
+          <div class="ds-summary" id="ds-fetch-summary">
+            <span class="ds-summary-label">Design System</span>
+            <span id="ds-fetch-summary-text"></span>
+          </div>
+        </div>
+
         <!-- Warning -->
         <div id="warning-box"></div>
 
@@ -802,8 +833,80 @@
       const generateStatus = document.getElementById("generate-status");
       const apiKeyInput = document.getElementById("api-key");
       const modelSelect = document.getElementById("model-select");
+      const dsUrlInput = document.getElementById("ds-url");
+      const dsPatInput = document.getElementById("ds-pat");
+      const fetchDsButton = document.getElementById("btn-fetch-ds");
+      const dsFetchSummary = document.getElementById("ds-fetch-summary");
+      const dsFetchSummaryText = document.getElementById("ds-fetch-summary-text");
       const shimmerContainer = document.getElementById("shimmer-container");
       const shimmerText = document.getElementById("shimmer-text");
+
+      const DS_URL_STORAGE_KEY = "vibma-ds-url";
+      const DS_PAT_STORAGE_KEY = "vibma-pat";
+
+      function safeLoadStorage(key) {
+        try {
+          return localStorage.getItem(key) || "";
+        } catch (_) {
+          return "";
+        }
+      }
+
+      function safeSaveStorage(key, value) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (_) {
+          // Ignore storage errors; users can still continue in-memory.
+        }
+      }
+
+      dsUrlInput.value = safeLoadStorage(DS_URL_STORAGE_KEY);
+      dsPatInput.value = safeLoadStorage(DS_PAT_STORAGE_KEY);
+
+      dsUrlInput.addEventListener("input", () => {
+        safeSaveStorage(DS_URL_STORAGE_KEY, dsUrlInput.value);
+      });
+
+      dsPatInput.addEventListener("input", () => {
+        safeSaveStorage(DS_PAT_STORAGE_KEY, dsPatInput.value);
+      });
+
+      async function runDesignSystemDetection(button, summary, summaryText, loadingLabel, resetButtonText, request) {
+        button.disabled = true;
+        button.textContent = loadingLabel;
+
+        summary.className = "ds-summary visible loading";
+        summaryText.textContent = "Scanning document…";
+
+        try {
+          const result = await request();
+          state.dsContext = result;
+          // Push component key map to code.ts so create_instance can use it
+          if (result.componentKeyMap && Object.keys(result.componentKeyMap).length > 0) {
+            parent.postMessage({ pluginMessage: { type: "cache-component-keys", componentKeyMap: result.componentKeyMap } }, "*");
+          }
+          summary.className = "ds-summary visible";
+          summaryText.textContent = result.summary || "Design system detected.";
+        } catch (err) {
+          summary.className = "ds-summary visible error";
+          summaryText.textContent = err.message || "Failed to detect design system.";
+          state.dsContext = null;
+        } finally {
+          button.disabled = false;
+          button.innerHTML = resetButtonText;
+        }
+      }
+
+      fetchDsButton.addEventListener("click", async () => {
+        await runDesignSystemDetection(
+          fetchDsButton,
+          dsFetchSummary,
+          dsFetchSummaryText,
+          "Fetching…",
+          "Fetch Design System",
+          () => sendFetchDesignSystem(dsUrlInput.value.trim(), dsPatInput.value.trim())
+        );
+      });
 
       // AI config persisted via figma.clientStorage (localStorage is blocked in data: URLs)
       apiKeyInput.addEventListener("input", () =>
@@ -815,29 +918,14 @@
 
       // ─── Auto-detect Design System ─────────────────────────────────
       detectBtn.addEventListener("click", async () => {
-        detectBtn.disabled = true;
-        detectBtn.textContent = "Detecting…";
-
-        dsSummary.className = "ds-summary visible loading";
-        dsSummaryText.textContent = "Scanning document…";
-
-        try {
-          const result = await sendPluginCommand("get_full_design_system_context", {});
-          state.dsContext = result;
-          // Push component key map to code.ts so create_instance can use it
-          if (result.componentKeyMap && Object.keys(result.componentKeyMap).length > 0) {
-            parent.postMessage({ pluginMessage: { type: "cache-component-keys", componentKeyMap: result.componentKeyMap } }, "*");
-          }
-          dsSummary.className = "ds-summary visible";
-          dsSummaryText.textContent = result.summary || "Design system detected.";
-        } catch (err) {
-          dsSummary.className = "ds-summary visible error";
-          dsSummaryText.textContent = err.message || "Failed to detect design system.";
-          state.dsContext = null;
-        } finally {
-          detectBtn.disabled = false;
-          detectBtn.innerHTML = '<span class="detect-icon">◈</span> Auto-detect Design System';
-        }
+        await runDesignSystemDetection(
+          detectBtn,
+          dsSummary,
+          dsSummaryText,
+          "Detecting…",
+          '<span class="detect-icon">◈</span> Auto-detect Design System',
+          () => sendPluginCommand("get_full_design_system_context", {})
+        );
       });
 
       // ─── Generate (self-contained LLM mode) ────────────────────────
@@ -1049,6 +1137,22 @@ Return ONLY tool calls — no explanatory prose. Be precise and complete.`;
             if (state.pendingRequests.has(id)) {
               state.pendingRequests.delete(id);
               reject(new Error("LLM request timed out after 2 minutes"));
+            }
+          }, 120000);
+        });
+      }
+
+      function sendFetchDesignSystem(dsUrl, pat) {
+        return new Promise((resolve, reject) => {
+          const id = generateId();
+          state.pendingRequests.set(id, { resolve, reject });
+          parent.postMessage({
+            pluginMessage: { type: "fetch-design-system", id, dsUrl, pat },
+          }, "*");
+          setTimeout(() => {
+            if (state.pendingRequests.has(id)) {
+              state.pendingRequests.delete(id);
+              reject(new Error("Fetch Design System timed out"));
             }
           }, 120000);
         });
@@ -1306,6 +1410,20 @@ Return ONLY tool calls — no explanatory prose. Be precise and complete.`;
               reject(new Error(message.error));
             } else {
               sendErrorResponse(message.id, message.error);
+            }
+            break;
+          case "fetch-design-system-result":
+            if (state.pendingRequests.has(message.id)) {
+              const { resolve } = state.pendingRequests.get(message.id);
+              state.pendingRequests.delete(message.id);
+              resolve(message.result);
+            }
+            break;
+          case "fetch-design-system-error":
+            if (state.pendingRequests.has(message.id)) {
+              const { reject } = state.pendingRequests.get(message.id);
+              state.pendingRequests.delete(message.id);
+              reject(new Error(message.error));
             }
             break;
           case "llm-result":

@@ -15,12 +15,13 @@
       "ws://localhost:3056",
       "ws://localhost:3057",
       "ws://localhost:3058",
+      "https://api.figma.com",
       "https://api.openai.com",
       "https://api.anthropic.com",
       "https://api.groq.com",
       "https://api.groq.com/openai"
     ],
-    "reasoning": "Connects to a local-only Vibma WebSocket relay (ports 3055-3058) and optionally calls LLM APIs directly from the plugin UI for self-contained generation (OpenAI, Anthropic, Groq).",
+    "reasoning": "Connects to a local-only Vibma WebSocket relay (ports 3055-3058), can fetch remote Figma design-system metadata from the Figma REST API, and optionally calls LLM APIs directly from the plugin UI for self-contained generation (OpenAI, Anthropic, Groq).",
     "devAllowedDomains": [
       "http://localhost:3055",
       "ws://localhost:3055",
@@ -30,6 +31,7 @@
       "ws://localhost:3057",
       "http://localhost:3058",
       "ws://localhost:3058",
+      "https://api.figma.com",
       "https://api.openai.com",
       "https://api.anthropic.com",
       "https://api.groq.com",

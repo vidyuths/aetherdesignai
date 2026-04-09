@@ -160,6 +160,15 @@ figma.ui.onmessage = async (msg: any) => {
         ? msg.componentKeyMap
         : {};
       break;
+    case "fetch-design-system":
+      handleRemoteDesignSystemFetch(msg).catch((error: any) => {
+        figma.ui.postMessage({
+          type: "fetch-design-system-error",
+          id: msg.id,
+          error: error?.message || String(error),
+        });
+      });
+      break;
     case "test-ds-on-canvas":
       handleTestDSOnCanvas(msg).catch((e: any) => {
         figma.ui.postMessage({ type: "test-ds-error", error: e?.message || String(e) });
@@ -203,6 +212,148 @@ function updateSettings(settings: any) {
     uiWidth: state.uiWidth,
     apiKey: state.apiKey,
     model: state.model,
+  });
+}
+
+function extractFigmaFileKey(url: string): string {
+  const match = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)(?:\/|\?|$)/i);
+  if (!match?.[1]) {
+    throw new Error("Invalid Figma design system URL.");
+  }
+  return match[1];
+}
+
+function objectValues<T = any>(value: any): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object") return Object.values(value) as T[];
+  return [];
+}
+
+async function figmaApiGet(path: string, pat: string): Promise<any> {
+  const response = await fetch(`https://api.figma.com/v1${path}`, {
+    headers: {
+      "X-Figma-Token": pat,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Figma API request failed (${response.status}): ${body || response.statusText}`);
+  }
+
+  return response.json();
+}
+
+function formatVariableApiNote(error: string | null): string {
+  if (!error) return "";
+  if (error.includes("file_variables:read")) {
+    return " Variable collections could not be loaded because this PAT does not include the file_variables:read scope.";
+  }
+  return ` Variable collections could not be loaded. ${error}`;
+}
+
+async function handleRemoteDesignSystemFetch(msg: any): Promise<void> {
+  const dsUrl = typeof msg.dsUrl === "string" ? msg.dsUrl.trim() : "";
+  const pat = typeof msg.pat === "string" ? msg.pat.trim() : "";
+
+  if (!dsUrl || !pat) {
+    throw new Error("Remote design system URL or PAT is not configured.");
+  }
+
+  const fileKey = extractFigmaFileKey(dsUrl);
+  const filePromise = figmaApiGet(`/files/${fileKey}`, pat);
+  const variablesPromise = figmaApiGet(`/files/${fileKey}/variables/local`, pat);
+
+  const fileResponse = await filePromise;
+  let variablesResponse: any = null;
+  let variableApiError: string | null = null;
+
+  try {
+    variablesResponse = await variablesPromise;
+  } catch (error: any) {
+    variableApiError = error?.message || String(error);
+  }
+
+  const sourceName = fileResponse?.name || "Unknown source";
+  const remoteComponentSets = objectValues<any>(fileResponse?.componentSets);
+  const remoteComponents = objectValues<any>(fileResponse?.components);
+
+  const componentKeyMap: Record<string, { setKey: string; componentKey: string; keyType: "SET" | "COMPONENT"; libraryName: string }> = {};
+  const componentSets: Array<{ name: string; libraryName: string; key: string; source: string }> = [];
+  const seenNames = new Set<string>();
+
+  for (const entry of remoteComponentSets) {
+    if (!entry?.name || !entry?.key || seenNames.has(entry.name)) continue;
+    seenNames.add(entry.name);
+    componentKeyMap[entry.name] = {
+      setKey: entry.key,
+      componentKey: "",
+      keyType: "SET",
+      libraryName: sourceName,
+    };
+    componentSets.push({ name: entry.name, libraryName: sourceName, key: entry.key, source: "remote" });
+  }
+
+  for (const entry of remoteComponents) {
+    if (!entry?.name || !entry?.key || entry?.componentSetId || seenNames.has(entry.name)) continue;
+    seenNames.add(entry.name);
+    componentKeyMap[entry.name] = {
+      setKey: "",
+      componentKey: entry.key,
+      keyType: "COMPONENT",
+      libraryName: sourceName,
+    };
+    componentSets.push({ name: entry.name, libraryName: sourceName, key: entry.key, source: "remote" });
+  }
+
+  const variableCollectionsRaw = objectValues<any>(variablesResponse?.meta?.variableCollections ?? variablesResponse?.variableCollections);
+  const variablesRaw = objectValues<any>(variablesResponse?.meta?.variables ?? variablesResponse?.variables);
+  const variablesByCollection = new Map<string, any[]>();
+
+  for (const variable of variablesRaw) {
+    const collectionId = variable?.variableCollectionId;
+    if (!collectionId) continue;
+    const list = variablesByCollection.get(collectionId) || [];
+    list.push(variable);
+    variablesByCollection.set(collectionId, list);
+  }
+
+  const variableCollections = variableCollectionsRaw.map((collection: any) => ({
+    name: collection?.name || "Unnamed collection",
+    libraryName: sourceName,
+    key: collection?.key || collection?.id || "",
+    variables: (variablesByCollection.get(collection?.id) || []).map((variable: any) => ({
+      name: variable?.name,
+      type: variable?.resolvedType,
+      key: variable?.key || variable?.id,
+    })),
+    source: "remote",
+  }));
+
+  state.componentKeyMap = componentKeyMap;
+
+  const summary =
+    `Detected ${variableCollections.length} variable collection${variableCollections.length !== 1 ? "s" : ""} ` +
+    `and ${componentSets.length} component${componentSets.length !== 1 ? "s" : ""} from source: ` +
+    `${sourceName} (${componentSets.length} component${componentSets.length !== 1 ? "s" : ""}). ` +
+    `Components fetched from the configured Figma design system file. ` +
+    `Use create_instance to place components.` +
+    formatVariableApiNote(variableApiError);
+
+  figma.ui.postMessage({
+    type: "fetch-design-system-result",
+    id: msg.id,
+    result: {
+      summary,
+      sourceName,
+      variableCollections,
+      componentSets,
+      componentKeyMap,
+      hasAttachedLibraries: componentSets.length > 0 || variableCollections.length > 0,
+      attachedLibraryNames: [sourceName],
+      variableApiError,
+      timestamp: Date.now(),
+    },
   });
 }
 
