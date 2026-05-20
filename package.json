@@ -21,7 +21,7 @@
     "docs:build": "npm run docs:generate && cd docs && npm run build"
   },
   "devDependencies": {
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
   },
   "dependencies": {
